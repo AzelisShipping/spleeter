@@ -13,7 +13,7 @@ COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
-RUN pip install --no-cache-dir flask gunicorn google-cloud-storage
+RUN pip install --no-cache-dir flask gunicorn google-cloud-storage typer==0.3.2 click==7.1.2
 
 # Set up the model directory
 ENV MODEL_PATH=/app/models
