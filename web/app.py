@@ -12,7 +12,9 @@ app = Flask(__name__)
 # Constants
 UPLOAD_FOLDER = '/tmp/uploads'
 OUTPUT_FOLDER = '/tmp/outputs'
-BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME', 'datascrape_amazonbestsellersincarengineoils')
+BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME')
+if not BUCKET_NAME:
+    raise ValueError("GCS_BUCKET_NAME environment variable must be set")
 ALLOWED_EXTENSIONS = {'mp3', 'wav', 'flac', 'ogg', 'm4a', 'wma'}
 
 # Create directories

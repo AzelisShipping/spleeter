@@ -13,11 +13,15 @@ COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
-RUN pip install --no-cache-dir flask gunicorn google-cloud-storage typer==0.3.2 click==7.1.2
+RUN pip install --no-cache-dir flask==2.0.1 werkzeug==2.0.1 gunicorn google-cloud-storage typer==0.3.2 click==7.1.2
 
 # Set up the model directory
 ENV MODEL_PATH=/app/models
 RUN mkdir -p /app/models
+
+# Set the Google Cloud Storage bucket name
+# This should be overridden when deploying to Cloud Run
+ENV GCS_BUCKET_NAME=your_gcs_bucket_name
 
 # Copy the web interface
 COPY web /app/web
