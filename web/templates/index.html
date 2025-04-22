@@ -9,7 +9,6 @@
         body {
             padding-top: 2rem;
             padding-bottom: 2rem;
-            background-color: #f8f9fa;
         }
         .loading {
             display: none;
@@ -17,22 +16,6 @@
         .results {
             display: none;
             margin-top: 2rem;
-        }
-        .card {
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            border: none;
-        }
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .stem-name {
-            font-weight: bold;
-        }
-        .progress {
-            height: 10px;
-            margin-top: 10px;
         }
     </style>
 </head>
@@ -71,16 +54,10 @@
                                 <span class="visually-hidden">Loading...</span>
                             </div>
                             <p class="mt-2">Processing your audio file. This may take a few minutes...</p>
-                            <div class="progress">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
-                            </div>
                         </div>
                         
                         <div class="results">
                             <h4 class="text-center mb-3">Separated Stems</h4>
-                            <div class="alert alert-success">
-                                <p class="mb-0">Your audio has been successfully separated. The stems are available both for direct download and from Google Cloud Storage.</p>
-                            </div>
                             <div class="list-group" id="filesList">
                                 <!-- Results will be added here -->
                             </div>
@@ -144,33 +121,19 @@
                         submitBtn.disabled = false;
                         
                         filesList.innerHTML = '';
-                        
-                        data.files.forEach((file, index) => {
-                            const item = document.createElement('div');
-                            item.className = 'list-group-item';
+                        data.files.forEach(file => {
+                            const item = document.createElement('a');
+                            item.className = 'list-group-item list-group-item-action';
+                            item.href = `/download/${jobId}/${file}`;
                             
                             const filename = file.split('/').pop();
                             const stemName = filename.split('.')[0];
-                            const displayName = stemName.charAt(0).toUpperCase() + stemName.slice(1);
-                            
-                            // Get the corresponding GCS URL
-                            const gcsUrl = data.gcs_urls[index];
-                            
-                            item.innerHTML = `
-                                <div class="file-item">
-                                    <span class="stem-name">${displayName}</span>
-                                    <div>
-                                        <a href="/download/${jobId}/${file}" class="btn btn-sm btn-primary me-2">Download</a>
-                                        <a href="${gcsUrl}" class="btn btn-sm btn-outline-secondary" target="_blank">Cloud Storage</a>
-                                    </div>
-                                </div>
-                            `;
+                            item.textContent = stemName.charAt(0).toUpperCase() + stemName.slice(1);
                             
                             filesList.appendChild(item);
                         });
                     } else if (data.status === 'error') {
-                        const errorMessage = data.message || 'An error occurred during processing.';
-                        alert(errorMessage);
+                        alert('An error occurred during processing.');
                         document.querySelector('.loading').style.display = 'none';
                         document.getElementById('submitBtn').disabled = false;
                     } else {

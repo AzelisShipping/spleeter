@@ -1,28 +1,29 @@
-FROM python:3.8-slim
+FROM python:3.9-slim
 
+# Install required dependencies
+RUN apt-get update && apt-get install -y ffmpeg libsndfile1 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY pyproject.toml poetry.lock ./
-RUN pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-dev --no-interaction --no-ansi
-
-# Copy the application code
+# Copy Spleeter files
 COPY . .
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
+# Install Python dependencies
+RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir flask gunicorn google-cloud-storage
 
-# Expose the port the app runs on
+# Set up the model directory
+ENV MODEL_PATH=/app/models
+RUN mkdir -p /app/models
+
+# Copy the web interface
+COPY web /app/web
+
+# Expose the port
 EXPOSE 8080
 
-# Command to run the web application
-CMD ["python", "-m", "web.app"] 
+# Run the web application
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "web.app:app"] 

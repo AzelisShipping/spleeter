@@ -81,34 +81,20 @@ def check_status(job_id):
             status = f.read().strip()
         
         if status == 'completed':
-            # Get list of output files and their GCS URLs
+            # Get list of output files
             files = []
-            gcs_urls = []
-            
             for item in os.listdir(output_path):
                 if os.path.isdir(os.path.join(output_path, item)):
                     for file in os.listdir(os.path.join(output_path, item)):
                         if file.endswith(('.wav', '.mp3')):
-                            relative_path = f"{item}/{file}"
-                            files.append(relative_path)
-                            
-                            # Generate GCS URL
-                            gcs_path = f"stems/{job_id}/{relative_path}"
-                            gcs_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{gcs_path}"
-                            gcs_urls.append(gcs_url)
+                            files.append(f"{item}/{file}")
             
             return jsonify({
                 'status': 'completed',
-                'files': files,
-                'gcs_urls': gcs_urls
+                'files': files
             })
         elif status == 'error':
-            error_message = "Unknown error"
-            error_file = os.path.join(output_path, 'error.txt')
-            if os.path.exists(error_file):
-                with open(error_file, 'r') as f:
-                    error_message = f.read().strip()
-            return jsonify({'status': 'error', 'message': error_message}), 500
+            return jsonify({'status': 'error'}), 500
     
     return jsonify({'status': 'processing'})
 
@@ -157,29 +143,18 @@ class SeparationThread(threading.Thread):
                         relative_path = os.path.relpath(local_path, self.output_path)
                         gcs_path = f"stems/{self.job_id}/{relative_path}"
                         
-                        # Upload to GCS
                         blob = bucket.blob(gcs_path)
                         blob.upload_from_filename(local_path)
-                        
-                        # Make the file publicly accessible
-                        blob.make_public()
-                        
-                        print(f"Uploaded {local_path} to gs://{BUCKET_NAME}/{gcs_path}")
             
             # Mark as completed
             with open(os.path.join(self.output_path, 'status.txt'), 'w') as f:
                 f.write('completed')
                 
         except Exception as e:
-            error_message = str(e)
-            print(f"Error processing job {self.job_id}: {error_message}")
-            
-            # Mark as error and save error message
+            print(f"Error processing job {self.job_id}: {str(e)}")
+            # Mark as error
             with open(os.path.join(self.output_path, 'status.txt'), 'w') as f:
                 f.write('error')
-            
-            with open(os.path.join(self.output_path, 'error.txt'), 'w') as f:
-                f.write(error_message)
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080))) 
