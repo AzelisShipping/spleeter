@@ -106,7 +106,16 @@ def check_status(job_id):
                 'files': files
             })
         elif status == 'error':
-            return jsonify({'status': 'error'}), 500
+            error_details = "Unknown error occurred"
+            error_file = os.path.join(output_path, 'error_details.txt')
+            if os.path.exists(error_file):
+                with open(error_file, 'r') as f:
+                    error_details = f.read()
+            
+            return jsonify({
+                'status': 'error',
+                'error_details': error_details
+            }), 500
     
     return jsonify({'status': 'processing'})
 
@@ -164,7 +173,18 @@ class SeparationThread(threading.Thread):
                 f.write('completed')
                 
         except Exception as e:
-            print(f"Error processing job {self.job_id}: {str(e)}")
+            error_msg = f"Error processing job {self.job_id}: {str(e)}"
+            print(error_msg)
+            
+            # Log detailed error information to a file for debugging
+            error_file_path = os.path.join(self.output_path, 'error_details.txt')
+            with open(error_file_path, 'w') as f:
+                import traceback
+                f.write(f"Error processing audio file: {self.input_file}\n")
+                f.write(f"Error message: {str(e)}\n\n")
+                f.write("Traceback:\n")
+                f.write(traceback.format_exc())
+            
             # Mark as error
             with open(os.path.join(self.output_path, 'status.txt'), 'w') as f:
                 f.write('error')
