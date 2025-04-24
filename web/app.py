@@ -3,7 +3,6 @@ import uuid
 import time
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
-from google.cloud import storage
 import spleeter
 from spleeter.separator import Separator
 
@@ -12,18 +11,29 @@ app = Flask(__name__)
 # Constants
 UPLOAD_FOLDER = '/tmp/uploads'
 OUTPUT_FOLDER = '/tmp/outputs'
+USE_GCS = os.environ.get('USE_GCS', 'false').lower() == 'true'
 BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME')
-if not BUCKET_NAME:
-    raise ValueError("GCS_BUCKET_NAME environment variable must be set")
 ALLOWED_EXTENSIONS = {'mp3', 'wav', 'flac', 'ogg', 'm4a', 'wma'}
 
 # Create directories
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# Initialize GCS client
-storage_client = storage.Client()
-bucket = storage_client.bucket(BUCKET_NAME)
+# Initialize GCS client if needed
+storage_client = None
+bucket = None
+if USE_GCS:
+    try:
+        from google.cloud import storage
+        if not BUCKET_NAME:
+            print("Warning: GCS_BUCKET_NAME environment variable not set. GCS uploads will be disabled.")
+            USE_GCS = False
+        else:
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(BUCKET_NAME)
+    except ImportError:
+        print("Warning: google-cloud-storage not installed. GCS uploads will be disabled.")
+        USE_GCS = False
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -134,19 +144,20 @@ class SeparationThread(threading.Thread):
                 codec='mp3'
             )
             
-            # Upload results to GCS
-            input_filename = os.path.basename(self.input_file)
-            base_filename = os.path.splitext(input_filename)[0]
-            
-            for root, dirs, files in os.walk(os.path.join(self.output_path, base_filename)):
-                for file in files:
-                    if file.endswith(('.mp3', '.wav')):
-                        local_path = os.path.join(root, file)
-                        relative_path = os.path.relpath(local_path, self.output_path)
-                        gcs_path = f"stems/{self.job_id}/{relative_path}"
-                        
-                        blob = bucket.blob(gcs_path)
-                        blob.upload_from_filename(local_path)
+            # Upload results to GCS if enabled
+            if USE_GCS and storage_client and bucket:
+                input_filename = os.path.basename(self.input_file)
+                base_filename = os.path.splitext(input_filename)[0]
+                
+                for root, dirs, files in os.walk(os.path.join(self.output_path, base_filename)):
+                    for file in files:
+                        if file.endswith(('.mp3', '.wav')):
+                            local_path = os.path.join(root, file)
+                            relative_path = os.path.relpath(local_path, self.output_path)
+                            gcs_path = f"stems/{self.job_id}/{relative_path}"
+                            
+                            blob = bucket.blob(gcs_path)
+                            blob.upload_from_filename(local_path)
             
             # Mark as completed
             with open(os.path.join(self.output_path, 'status.txt'), 'w') as f:
